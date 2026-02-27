@@ -172,6 +172,7 @@ def delete_lead(leads):
     save_leads_to_csv(leads)
     print(f"Удалено: {deleted['created_at']} | {deleted['name']} | {deleted['phone']} | {deleted['service']}")
 
+
 def edit_lead(leads):
     """Редактирует существующую заявку по номеру и сохраняет CSV"""
     if not leads:
@@ -187,30 +188,25 @@ def edit_lead(leads):
         print("Нет такой заявки.")
         return
 
-    # Получаем заявку для редактирования
     lead = leads[number - 1]
     print(f"Текущие данные: {lead['created_at']} | {lead['name']} | {lead['phone']} | {lead['service']}")
     print("Если хотите оставить поле без изменений, просто нажмите Enter.")
 
-    # Редактируем имя
     new_name = input(f"Имя [{lead['name']}]: ").strip()
     if new_name:
         lead['name'] = new_name
 
-    # Редактируем телефон (с проверкой)
     new_phone = input(f"Телефон [{lead['phone']}]: ").strip()
     if new_phone:
-        # Можно добавить проверку через normalize_phone, но для простоты сохраняем как ввели
         lead['phone'] = new_phone
 
-    # Редактируем услугу
     new_service = input(f"Услуга [{lead['service']}]: ").strip()
     if new_service:
         lead['service'] = new_service
 
-    # Сохраняем изменения
     save_leads_to_csv(leads)
     print("Заявка обновлена и сохранена.")
+
 
 def main():
     leads = load_leads_from_csv()
@@ -243,9 +239,8 @@ def main():
                 print("Пока.")
                 break
             else:
-                print("Не понял. Выбери 1, 2, 3, 4 или 0.")
+                print("Не понял. Выбери 1, 2, 3, 4, 5 или 0.")
     except KeyboardInterrupt:
-        # Красивый выход при нажатии Ctrl+C
         print()
         print("Остановка. Пока.")
 

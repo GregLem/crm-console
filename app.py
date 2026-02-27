@@ -28,12 +28,22 @@ def input_phone(prompt):
         print("Телефон некорректный. Введи номер (должны быть цифры).")
 
 
+def input_int(prompt):
+    """Ввод целого числа (пока не введут корректно)"""
+    while True:
+        s = input_non_empty(prompt)
+        try:
+            return int(s)
+        except ValueError:
+            print("Нужно ввести число.")
+
+
 def save_leads_to_csv(leads, filename=CSV_FILE):
     """Сохраняет список заявок в CSV (перезаписывает файл)"""
     with open(filename, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
-        writer.writeheader()
-        writer.writerows(leads)
+        writer.writeheader()          # записываем заголовки
+        writer.writerows(leads)       # записываем все строки
 
 
 def load_leads_from_csv(filename=CSV_FILE):
@@ -43,7 +53,8 @@ def load_leads_from_csv(filename=CSV_FILE):
             reader = csv.DictReader(f)
             leads = []
             for row in reader:
-                # Очищаем значения от лишних пробелов и подставляем пустую строку, если ключа нет
+                # Гарантируем, что у каждой заявки есть все поля (даже пустые)
+                # и убираем лишние пробелы
                 lead = {key: (row.get(key, "") or "").strip() for key in FIELDNAMES}
                 leads.append(lead)
         print(f"Загружено заявок: {len(leads)}")
@@ -74,22 +85,23 @@ def add_lead(leads):
 
 
 def show_leads(leads):
-    """Показывает все заявки в консоли"""
+    """Показывает все заявки в консоли с красивым форматированием"""
     if not leads:
         print("Заявок пока нет.")
         return
 
-    # Ширина колонок
+    # Ширина колонок (подобрана для средних значений)
     w_date = 16
     w_name = 18
     w_phone = 14
     w_service = 18
 
     def cut(s, w):
+        """Обрезает строку до ширины w, добавляя '...' если нужно"""
         s = s or ""
-        return (s[: w - 1] + "…") if len(s) > w else s
+        return (s[: w - 1] + "...") if len(s) > w else s
 
-    # Заголовок
+    # Формируем заголовок
     header = (
         "№".ljust(4)
         + "Дата".ljust(w_date + 2)
@@ -101,7 +113,7 @@ def show_leads(leads):
     print(header)
     print("-" * len(header))
 
-    # Строки
+    # Выводим строки
     for i, lead in enumerate(leads, start=1):
         line = (
             str(i).ljust(4)
@@ -111,12 +123,11 @@ def show_leads(leads):
             + cut(lead["service"], w_service).ljust(w_service + 2)
         )
         print(line)
-
     print("-" * len(header))
 
 
 def find_leads_by_phone(leads, phone_query):
-    """Ищет заявки по телефону. Ищем по цифрам, допускаем частичное совпадение."""
+    """Ищет заявки по телефону (по цифрам, частичное совпадение)"""
     q = normalize_phone(phone_query)
     if not q:
         return []
@@ -142,31 +153,101 @@ def show_found_leads(found):
     print("-" * 60)
 
 
+def delete_lead(leads):
+    """Удаляет заявку по номеру из списка (как в show_leads) и сохраняет CSV"""
+    if not leads:
+        print("Удалять нечего. Заявок нет.")
+        return
+
+    show_leads(leads)
+    number = input_int("Введите номер заявки для удаления (0 - отмена): ")
+    if number == 0:
+        print("Отмена.")
+        return
+    if number < 1 or number > len(leads):
+        print("Нет такой заявки.")
+        return
+    # Удаляем элемент (индексация с 0)
+    deleted = leads.pop(number - 1)
+    save_leads_to_csv(leads)
+    print(f"Удалено: {deleted['created_at']} | {deleted['name']} | {deleted['phone']} | {deleted['service']}")
+
+def edit_lead(leads):
+    """Редактирует существующую заявку по номеру и сохраняет CSV"""
+    if not leads:
+        print("Редактировать нечего. Заявок нет.")
+        return
+
+    show_leads(leads)
+    number = input_int("Введите номер заявки для редактирования (0 - отмена): ")
+    if number == 0:
+        print("Отмена.")
+        return
+    if number < 1 or number > len(leads):
+        print("Нет такой заявки.")
+        return
+
+    # Получаем заявку для редактирования
+    lead = leads[number - 1]
+    print(f"Текущие данные: {lead['created_at']} | {lead['name']} | {lead['phone']} | {lead['service']}")
+    print("Если хотите оставить поле без изменений, просто нажмите Enter.")
+
+    # Редактируем имя
+    new_name = input(f"Имя [{lead['name']}]: ").strip()
+    if new_name:
+        lead['name'] = new_name
+
+    # Редактируем телефон (с проверкой)
+    new_phone = input(f"Телефон [{lead['phone']}]: ").strip()
+    if new_phone:
+        # Можно добавить проверку через normalize_phone, но для простоты сохраняем как ввели
+        lead['phone'] = new_phone
+
+    # Редактируем услугу
+    new_service = input(f"Услуга [{lead['service']}]: ").strip()
+    if new_service:
+        lead['service'] = new_service
+
+    # Сохраняем изменения
+    save_leads_to_csv(leads)
+    print("Заявка обновлена и сохранена.")
+
 def main():
     leads = load_leads_from_csv()
 
-    while True:
-        print()
-        print("Меню:")
-        print("1 - Добавить заявку")
-        print("2 - Показать все заявки")
-        print("3 - Поиск по телефону")
-        print("0 - Выход")
-        choice = input("Выбор: ").strip()
+    try:
+        while True:
+            print()
+            print("Меню:")
+            print("1 - Добавить заявку")
+            print("2 - Показать все заявки")
+            print("3 - Поиск по телефону")
+            print("4 - Удалить заявку")
+            print("5 - Редактировать заявку")
+            print("0 - Выход")
+            choice = input("Выбор: ").strip()
 
-        if choice == "1":
-            add_lead(leads)
-        elif choice == "2":
-            show_leads(leads)
-        elif choice == "3":
-            phone_query = input_non_empty("Введите телефон или часть телефона: ")
-            found = find_leads_by_phone(leads, phone_query)
-            show_found_leads(found)
-        elif choice == "0":
-            print("Пока.")
-            break
-        else:
-            print("Не понял. Выбери 1, 2, 3 или 0.")
+            if choice == "1":
+                add_lead(leads)
+            elif choice == "2":
+                show_leads(leads)
+            elif choice == "3":
+                phone_query = input_non_empty("Введите телефон или часть телефона: ")
+                found = find_leads_by_phone(leads, phone_query)
+                show_found_leads(found)
+            elif choice == "4":
+                delete_lead(leads)
+            elif choice == "5":
+                edit_lead(leads)
+            elif choice == "0":
+                print("Пока.")
+                break
+            else:
+                print("Не понял. Выбери 1, 2, 3, 4 или 0.")
+    except KeyboardInterrupt:
+        # Красивый выход при нажатии Ctrl+C
+        print()
+        print("Остановка. Пока.")
 
 
 if __name__ == "__main__":

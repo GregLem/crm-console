@@ -5,19 +5,6 @@ CSV_FILE = "leads.csv"
 FIELDNAMES = ["created_at", "name", "phone", "service"]
 
 
-class Lead:
-    """Класс, представляющий одну заявку"""
-    def __init__(self, name: str, phone: str, service: str):
-        self.name = name
-        self.phone = phone
-        self.service = service
-        self.created_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-
-    def __str__(self):
-        """Для красивого вывода в консоль"""
-        return f"{self.created_at} | {self.name} | {self.phone} | {self.service}"
-
-
 def input_non_empty(prompt):
     """Ввод строки, которая не может быть пустой"""
     while True:
@@ -55,17 +42,8 @@ def save_leads_to_csv(leads, filename=CSV_FILE):
     """Сохраняет список заявок в CSV (перезаписывает файл)"""
     with open(filename, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
-        writer.writeheader()
-        # Превращаем каждый объект Lead в словарь
-        leads_dicts = []
-        for lead in leads:
-            leads_dicts.append({
-                "created_at": lead.created_at,
-                "name": lead.name,
-                "phone": lead.phone,
-                "service": lead.service
-            })
-        writer.writerows(leads_dicts)
+        writer.writeheader()          # записываем заголовки
+        writer.writerows(leads)       # записываем все строки
 
 
 def load_leads_from_csv(filename=CSV_FILE):
@@ -75,14 +53,9 @@ def load_leads_from_csv(filename=CSV_FILE):
             reader = csv.DictReader(f)
             leads = []
             for row in reader:
-                # Создаём объект Lead из данных строки (дата будет перезаписана ниже)
-                lead = Lead(
-                    name=row.get("name", "").strip(),
-                    phone=row.get("phone", "").strip(),
-                    service=row.get("service", "").strip()
-                )
-                # Устанавливаем дату из файла (она была сохранена ранее)
-                lead.created_at = row.get("created_at", "").strip()
+                # Гарантируем, что у каждой заявки есть все поля (даже пустые)
+                # и убираем лишние пробелы
+                lead = {key: (row.get(key, "") or "").strip() for key in FIELDNAMES}
                 leads.append(lead)
         print(f"Загружено заявок: {len(leads)}")
         return leads
@@ -95,12 +68,17 @@ def load_leads_from_csv(filename=CSV_FILE):
 
 
 def add_lead(leads):
-    """Добавляет новую заявку (объект Lead) и сохраняет"""
+    """Добавляет новую заявку и сразу сохраняет весь список в CSV"""
     name = input_non_empty("Имя клиента: ")
     phone = input_phone("Телефон: ")
     service = input_non_empty("Услуга: ")
 
-    lead = Lead(name, phone, service)
+    lead = {
+        "name": name,
+        "phone": phone,
+        "service": service,
+        "created_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+    }
     leads.append(lead)
     save_leads_to_csv(leads)
     print("Заявка добавлена и сохранена.")
@@ -139,10 +117,10 @@ def show_leads(leads):
     for i, lead in enumerate(leads, start=1):
         line = (
             str(i).ljust(4)
-            + cut(lead.created_at, w_date).ljust(w_date + 2)
-            + cut(lead.name, w_name).ljust(w_name + 2)
-            + cut(lead.phone, w_phone).ljust(w_phone + 2)
-            + cut(lead.service, w_service).ljust(w_service + 2)
+            + cut(lead["created_at"], w_date).ljust(w_date + 2)
+            + cut(lead["name"], w_name).ljust(w_name + 2)
+            + cut(lead["phone"], w_phone).ljust(w_phone + 2)
+            + cut(lead["service"], w_service).ljust(w_service + 2)
         )
         print(line)
     print("-" * len(header))
@@ -156,7 +134,7 @@ def find_leads_by_phone(leads, phone_query):
 
     result = []
     for lead in leads:
-        lead_phone = normalize_phone(lead.phone)
+        lead_phone = normalize_phone(lead.get("phone", ""))
         if q in lead_phone:
             result.append(lead)
     return result
@@ -171,12 +149,12 @@ def show_found_leads(found):
     print(f"Найдено: {len(found)}")
     print("-" * 60)
     for i, lead in enumerate(found, start=1):
-        print(f"{i}. {lead.created_at} | {lead.name} | {lead.phone} | {lead.service}")
+        print(f"{i}. {lead['created_at']} | {lead['name']} | {lead['phone']} | {lead['service']}")
     print("-" * 60)
 
 
 def delete_lead(leads):
-    """Удаляет заявку по номеру из списка и сохраняет CSV"""
+    """Удаляет заявку по номеру из списка (как в show_leads) и сохраняет CSV"""
     if not leads:
         print("Удалять нечего. Заявок нет.")
         return
@@ -189,10 +167,10 @@ def delete_lead(leads):
     if number < 1 or number > len(leads):
         print("Нет такой заявки.")
         return
-
+    # Удаляем элемент (индексация с 0)
     deleted = leads.pop(number - 1)
     save_leads_to_csv(leads)
-    print(f"Удалено: {deleted.created_at} | {deleted.name} | {deleted.phone} | {deleted.service}")
+    print(f"Удалено: {deleted['created_at']} | {deleted['name']} | {deleted['phone']} | {deleted['service']}")
 
 
 def edit_lead(leads):
@@ -211,20 +189,20 @@ def edit_lead(leads):
         return
 
     lead = leads[number - 1]
-    print(f"Текущие данные: {lead.created_at} | {lead.name} | {lead.phone} | {lead.service}")
+    print(f"Текущие данные: {lead['created_at']} | {lead['name']} | {lead['phone']} | {lead['service']}")
     print("Если хотите оставить поле без изменений, просто нажмите Enter.")
 
-    new_name = input(f"Имя [{lead.name}]: ").strip()
+    new_name = input(f"Имя [{lead['name']}]: ").strip()
     if new_name:
-        lead.name = new_name
+        lead['name'] = new_name
 
-    new_phone = input(f"Телефон [{lead.phone}]: ").strip()
+    new_phone = input(f"Телефон [{lead['phone']}]: ").strip()
     if new_phone:
-        lead.phone = new_phone
+        lead['phone'] = new_phone
 
-    new_service = input(f"Услуга [{lead.service}]: ").strip()
+    new_service = input(f"Услуга [{lead['service']}]: ").strip()
     if new_service:
-        lead.service = new_service
+        lead['service'] = new_service
 
     save_leads_to_csv(leads)
     print("Заявка обновлена и сохранена.")

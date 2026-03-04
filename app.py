@@ -2,7 +2,10 @@ import csv
 import datetime
 
 CSV_FILE = "leads.csv"
-FIELDNAMES = ["created_at", "name", "phone", "service"]
+FIELDNAMES = ["created_at", "name", "phone", "service", "status"]
+
+# Возможные статусы заявки
+STATUSES = ["новая", "в работе", "выполнена", "отменена"]
 
 
 class Lead:
@@ -12,10 +15,11 @@ class Lead:
         self.phone = phone
         self.service = service
         self.created_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+        self.status = "новая"  # По умолчанию
 
     def __str__(self):
         """Для красивого вывода в консоль"""
-        return f"{self.created_at} | {self.name} | {self.phone} | {self.service}"
+        return f"{self.created_at} | {self.name} | {self.phone} | {self.service} | {self.status}"
 
 
 def input_non_empty(prompt):
@@ -56,14 +60,14 @@ def save_leads_to_csv(leads, filename=CSV_FILE):
     with open(filename, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
         writer.writeheader()
-        # Превращаем каждый объект Lead в словарь
         leads_dicts = []
         for lead in leads:
             leads_dicts.append({
                 "created_at": lead.created_at,
                 "name": lead.name,
                 "phone": lead.phone,
-                "service": lead.service
+                "service": lead.service,
+                "status": lead.status
             })
         writer.writerows(leads_dicts)
 
@@ -75,14 +79,13 @@ def load_leads_from_csv(filename=CSV_FILE):
             reader = csv.DictReader(f)
             leads = []
             for row in reader:
-                # Создаём объект Lead из данных строки (дата будет перезаписана ниже)
                 lead = Lead(
                     name=row.get("name", "").strip(),
                     phone=row.get("phone", "").strip(),
                     service=row.get("service", "").strip()
                 )
-                # Устанавливаем дату из файла (она была сохранена ранее)
                 lead.created_at = row.get("created_at", "").strip()
+                lead.status = row.get("status", "новая").strip()
                 leads.append(lead)
         print(f"Загружено заявок: {len(leads)}")
         return leads
@@ -112,30 +115,29 @@ def show_leads(leads):
         print("Заявок пока нет.")
         return
 
-    # Ширина колонок (подобрана для средних значений)
+    # Ширина колонок
     w_date = 16
     w_name = 18
     w_phone = 14
     w_service = 18
+    w_status = 10
 
     def cut(s, w):
-        """Обрезает строку до ширины w, добавляя '...' если нужно"""
         s = s or ""
         return (s[: w - 1] + "...") if len(s) > w else s
 
-    # Формируем заголовок
     header = (
         "№".ljust(4)
         + "Дата".ljust(w_date + 2)
         + "Клиент".ljust(w_name + 2)
         + "Телефон".ljust(w_phone + 2)
         + "Услуга".ljust(w_service + 2)
+        + "Статус".ljust(w_status + 2)
     )
     print("-" * len(header))
     print(header)
     print("-" * len(header))
 
-    # Выводим строки
     for i, lead in enumerate(leads, start=1):
         line = (
             str(i).ljust(4)
@@ -143,9 +145,12 @@ def show_leads(leads):
             + cut(lead.name, w_name).ljust(w_name + 2)
             + cut(lead.phone, w_phone).ljust(w_phone + 2)
             + cut(lead.service, w_service).ljust(w_service + 2)
+            + cut(lead.status, w_status).ljust(w_status + 2)
         )
         print(line)
+
     print("-" * len(header))
+    print(f"Всего заявок: {len(leads)}")
 
 
 def find_leads_by_phone(leads, phone_query):
@@ -169,10 +174,10 @@ def show_found_leads(found):
         return
 
     print(f"Найдено: {len(found)}")
-    print("-" * 60)
+    print("-" * 70)
     for i, lead in enumerate(found, start=1):
-        print(f"{i}. {lead.created_at} | {lead.name} | {lead.phone} | {lead.service}")
-    print("-" * 60)
+        print(f"{i}. {lead.created_at} | {lead.name} | {lead.phone} | {lead.service} | {lead.status}")
+    print("-" * 70)
 
 
 def delete_lead(leads):
@@ -192,7 +197,7 @@ def delete_lead(leads):
 
     deleted = leads.pop(number - 1)
     save_leads_to_csv(leads)
-    print(f"Удалено: {deleted.created_at} | {deleted.name} | {deleted.phone} | {deleted.service}")
+    print(f"Удалено: {deleted.created_at} | {deleted.name} | {deleted.phone} | {deleted.service} | {deleted.status}")
 
 
 def edit_lead(leads):
@@ -211,7 +216,7 @@ def edit_lead(leads):
         return
 
     lead = leads[number - 1]
-    print(f"Текущие данные: {lead.created_at} | {lead.name} | {lead.phone} | {lead.service}")
+    print(f"Текущие данные: {lead.created_at} | {lead.name} | {lead.phone} | {lead.service} | {lead.status}")
     print("Если хотите оставить поле без изменений, просто нажмите Enter.")
 
     new_name = input(f"Имя [{lead.name}]: ").strip()
@@ -226,8 +231,34 @@ def edit_lead(leads):
     if new_service:
         lead.service = new_service
 
+    # Редактирование статуса
+    print("Выберите новый статус (или Enter, чтобы оставить текущий):")
+    for idx, s in enumerate(STATUSES, start=1):
+        print(f"{idx} - {s}")
+    status_choice = input(f"Статус [{lead.status}]: ").strip()
+    if status_choice:
+        try:
+            idx = int(status_choice) - 1
+            if 0 <= idx < len(STATUSES):
+                lead.status = STATUSES[idx]
+            else:
+                print("Неверный номер, статус не изменён.")
+        except ValueError:
+            print("Нужно ввести число, статус не изменён.")
+
     save_leads_to_csv(leads)
     print("Заявка обновлена и сохранена.")
+
+
+def show_today_leads(leads):
+    """Показывает заявки, созданные сегодня"""
+    today = datetime.datetime.now().strftime("%Y-%m-%d")
+    today_leads = [lead for lead in leads if lead.created_at.startswith(today)]
+    if not today_leads:
+        print("За сегодня заявок нет.")
+    else:
+        print(f"\nЗаявки за {today}:")
+        show_leads(today_leads)
 
 
 def main():
@@ -242,6 +273,7 @@ def main():
             print("3 - Поиск по телефону")
             print("4 - Удалить заявку")
             print("5 - Редактировать заявку")
+            print("6 - Показать за сегодня")
             print("0 - Выход")
             choice = input("Выбор: ").strip()
 
@@ -257,11 +289,13 @@ def main():
                 delete_lead(leads)
             elif choice == "5":
                 edit_lead(leads)
+            elif choice == "6":
+                show_today_leads(leads)
             elif choice == "0":
                 print("Пока.")
                 break
             else:
-                print("Не понял. Выбери 1, 2, 3, 4, 5 или 0.")
+                print("Не понял. Выбери 1, 2, 3, 4, 5, 6 или 0.")
     except KeyboardInterrupt:
         print()
         print("Остановка. Пока.")

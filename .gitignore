@@ -3,3 +3,10 @@ __pycache__/
 *.pyc
 *.exe
 leads.csv
+# Django project inside web/
+web/venv/
+web/db.sqlite3
+web/__pycache__/
+web/*.pyc
+output/
+app.exe

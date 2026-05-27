@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block title %}Канбан-доска | CRM{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2">📌 Канбан-доска</h1>
+    <div>
+        <a href="{% url 'analytics_dashboard' %}" class="btn btn-outline-info me-2">
+            📊 Аналитика
+        </a>
+        <a href="{% url 'add_lead' %}" class="btn btn-success">
+            ➕ Новая заявка
+        </a>
+    </div>
+</div>
+
+<div class="row flex-nowrap overflow-auto pb-4">
+    {% for status_value, status_data in leads_by_status.items %}
+    <div class="col-12 col-md-6 col-lg-4 col-xl-2">
+        <div class="card bg-light h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 fw-bold">{{ status_data.label }}</h6>
+                <span class="badge bg-secondary rounded-pill">{{ status_data.leads.count }}</span>
+            </div>
+            <div class="card-body kanban-column" 
+                 data-status="{{ status_value }}"
+                 style="min-height: 200px;"
+                 ondragover="event.preventDefault()"
+                 ondrop="drop(event, '{{ status_value }}')">
+                
+                {% for lead in status_data.leads %}
+                <div class="card shadow-sm mb-2 kanban-item" 
+                     draggable="true" 
+                     data-lead-id="{{ lead.id }}"
+                     ondragstart="drag(event)"
+                     style="cursor: grab;">
+                    <div class="card-body p-2">
+                        <h6 class="card-title mb-1 small">{{ lead.name }}</h6>
+                        <p class="card-text small text-muted mb-1">
+                            📞 {{ lead.phone }}
+                        </p>
+                        {% if lead.service %}
+                        <p class="card-text small mb-1">
+                            🔧 {{ lead.service|truncatechars:30 }}
+                        </p>
+                        {% endif %}
+                        <small class="text-muted">{{ lead.created_at|date:"d.m.Y" }}</small>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-muted small text-center mt-2">Пусто</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+function drag(ev) {
+    ev.dataTransfer.setData("text", ev.target.closest('.kanban-item').dataset.leadId);
+}
+
+function drop(ev, newStatus) {
+    ev.preventDefault();
+    const leadId = ev.dataTransfer.getData("text");
+    const item = document.querySelector(`[data-lead-id="${leadId}"]`);
+    
+    // Перемещаем визуально
+    ev.target.closest('.kanban-column').appendChild(item);
+    
+    // Отправляем на сервер
+    fetch('/api/update-status/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            lead_id: leadId,
+            status: newStatus
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Обновляем счётчики
+            location.reload();
+        }
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

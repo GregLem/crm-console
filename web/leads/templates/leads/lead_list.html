@@ -1,26 +1,26 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <title>Список заявок</title>
-    <style>
-        body { font-family: Arial; margin: 20px; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #4CAF50; color: white; }
-        tr:nth-child(even) { background-color: #f2f2f2; }
-        .status { font-weight: bold; }
-        .status-new { color: blue; }
-        .status-in_progress { color: orange; }
-        .status-done { color: green; }
-        .status-canceled { color: red; }
-    </style>
-</head>
-<body>
-    <h1>Все заявки</h1>
-    <p><a href="{% url 'add_lead' %}">➕ Добавить заявку</a></p>
-     <table>
-        <thead>
+{% extends 'base.html' %}
+
+{% block title %}Список заявок | CRM{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2">📋 Все заявки</h1>
+    <div>
+        <a href="{% url 'kanban_board' %}" class="btn btn-outline-primary me-2">
+            📌 Канбан
+        </a>
+        <a href="{% url 'analytics_dashboard' %}" class="btn btn-outline-info me-2">
+            📊 Аналитика
+        </a>
+        <a href="{% url 'add_lead' %}" class="btn btn-success">
+            ➕ Новая заявка
+        </a>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-hover table-striped align-middle">
+        <thead class="table-dark">
             <tr>
                 <th>ID</th>
                 <th>Дата</th>
@@ -33,21 +33,32 @@
         <tbody>
             {% for lead in leads %}
             <tr>
-                <td>{{ lead.id }}</td>
+                <td><span class="badge bg-secondary">{{ lead.id }}</span></td>
                 <td>{{ lead.created_at|date:"d.m.Y H:i" }}</td>
                 <td>{{ lead.name }}</td>
                 <td>{{ lead.phone }}</td>
                 <td>{{ lead.service }}</td>
-                <td class="status status-{{ lead.status }}">
-                    {{ lead.get_status_display }}
+                <td>
+                    <span class="badge 
+                        {% if lead.status == 'new' %}bg-primary
+                        {% elif lead.status == 'in_progress' %}bg-warning text-dark
+                        {% elif lead.status == 'proposal' %}bg-info
+                        {% elif lead.status == 'negotiation' %}bg-purple
+                        {% elif lead.status == 'won' %}bg-success
+                        {% elif lead.status == 'lost' %}bg-danger
+                        {% endif %}">
+                        {{ lead.get_status_display }}
+                    </span>
                 </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="6">Заявок пока нет.</td>
+                <td colspan="6" class="text-center py-4 text-muted">
+                    🗑️ Заявок пока нет. <a href="{% url 'add_lead' %}">Добавить первую</a>
+                </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
-</body>
-</html>
+</div>
+{% endblock %}
